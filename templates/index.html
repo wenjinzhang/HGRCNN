@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Hand Gesture Recognition</title>
+    <script
+            src="https://code.jquery.com/jquery-2.2.4.min.js"
+            integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44="
+            crossorigin="anonymous"></script>
+</head>
+<body>
+<button id="camera">start</button>
+<button id="stop">stop</button>
+<video src="" id="video" width="480" height="400"></video>
+<!--canvs size-->
+<canvas width="120" height="100" id="outrec"></canvas>
+<!--base64 result-->
+<img id="imgvideo" style="display:none;" width="120" height="100" src=""/>
+
+<script type="text/javascript">
+    var video = document.getElementById("video"); //视频dom元素
+    //001.open camera when the dom ready
+    $(document).ready(function () {
+        var Devicestate = navigator.mediaDevices.getUserMedia({
+            video: true
+        })
+
+        Devicestate.then(function (mediaStream) {
+            video.src = window.URL.createObjectURL(mediaStream);
+            console.log(mediaStream)
+            video.onloadedmetadata = function (e) {
+                video.play();
+            };
+        });
+
+        //do not have permission to use camera
+        Devicestate.catch(function (err) {
+            console.log(err.name);
+            alert("please allow us use your camera");
+        });
+    });
+
+    //002. click camera
+    $('#camera').click(function () {
+        var clock = setInterval(crop_image, 100);
+        $("#stop").click(function () {
+            alert("cancer")
+            clearInterval(clock);
+        })
+
+
+    });
+
+    function crop_image() {
+        //video to canvs
+        var outrec = document.getElementById("outrec");
+        var outreccon = outrec.getContext("2d");
+        outreccon.drawImage(video, 0, 0, 120, 100);
+        var img = outrec.toDataURL("image/jpeg", 0.5)
+        $('#imgvideo').attr('src', img);
+        // call method
+        // parameter 1：canvas
+        // parameter 2： image name，optional
+        //downloadCanvasIamge('#outrec', 'imgvideo');
+        uploadimgs('#outrec')
+        //setInterval(crop_image(), 10000);
+    }
+
+    function uploadimgs(selector) {
+        var canvas = document.querySelector(selector)
+        img_data = canvas.toDataURL('image/png')
+        img_data = img_data.replace(/^data:image\/(png|jpg);base64,/,"")
+        load_url = 'https://10.0.126.101:5000/receive';
+
+        $.ajax({
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            url: load_url,
+            dataType : "json",
+            data: '{"imageBase64" :"' + img_data + '"}',
+            success: function (data) {
+                console.log('success')
+
+            },
+            error: function (data) {
+                alert('error')
+            }
+
+        });
+
+    }
+
+    // 下载Canvas元素的图片
+    function downloadCanvasIamge(selector, name) {
+        // 通过选择器获取canvas元素
+        var canvas = document.querySelector(selector)
+        // 使用toDataURL方法将图像转换被base64编码的URL字符串
+        var url = canvas.toDataURL('image/jpeg')
+        // 生成一个a元素
+        var a = document.createElement('a')
+        // 创建一个单击事件
+        var event = new MouseEvent('click')
+        a.download = name || 'None images'
+        // 将生成的URL设置为a.href属性
+        a.href = url
+        // 触发a的单击事件
+        a.dispatchEvent(event)
+    }
+
+    //close the window
+    function custom_close() {
+//        if (confirm("摄像拍照成功，确认是否关闭本窗口")) {
+//            //delete_file();
+//            window.opener = null;
+//            window.open('', '_self');
+//            window.close();
+//        } else {
+//
+//
+//        }
+
+    }
+
+    //关闭窗口之后删除下载的图片文件，ActiveXObject对象只能在IE浏览器创建
+    /*function delete_file(){
+    alert("删除文件");
+    var fso = new ActiveXObject("Scripting.FileSystemObject");
+    var imgHandle = fso.GetFile("C:\\Users\\yuzhangwei\\Downloads\\imgvideo.jpg"); 
+    imgHandle.Delete();
+    }*/
+
+</script>
+</body>
+
+</html>
