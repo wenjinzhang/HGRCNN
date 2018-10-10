@@ -38,7 +38,7 @@ model = ConvColumn(config['num_classes'])
 model = torch.nn.DataParallel(model).to(device)
 checkpoint = torch.load(config['checkpoint'], map_location='cpu')
 model.load_state_dict(checkpoint['state_dict'])
-
+model.eval()
 
 def model_caculate(input):
     # compute the model
