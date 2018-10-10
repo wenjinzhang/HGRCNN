@@ -1,13 +1,7 @@
 import queue
 
-data = []
+data = [0, 1, 2, 3, 4, 5]
 
-for i in range(18):
-    data.append(i)
+data = [data[0:3], data[1:4], data[2:5]]
 
 print(data)
-
-del data[0]
-data.append(18)
-print(data)
-

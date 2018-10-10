@@ -24,7 +24,7 @@ parser.add_argument('--eval_only', '-e', default=False, type=str2bool,
                     help="evaluate trained model on validation data.")
 parser.add_argument('--resume', '-r', default=False, type=str2bool,
                     help="resume training from given checkpoint.")
-parser.add_argument('--use_gpu', default=True, type=str2bool,
+parser.add_argument('--use_gpu', default=False, type=str2bool,
                     help="flag to use gpu or not.")
 parser.add_argument('--gpus', '-g', help="gpu ids for use.")
 
@@ -84,7 +84,7 @@ def main():
     if args.resume:
         if os.path.isfile(config['checkpoint']):
             print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(config['checkpoint'])
+            checkpoint = torch.load(config['checkpoint'], map_location='cpu')
             args.start_epoch = checkpoint['epoch']
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])

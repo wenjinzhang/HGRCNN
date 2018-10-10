@@ -2,18 +2,28 @@ from flask import Flask, render_template, request, jsonify
 import base64
 import time
 from PIL import Image
+from io import BytesIO
 import json
 from model import ConvColumn
 from torchvision.transforms import *
 import torch
+import numpy as np
+from data_parser import JpegDataset
+
 import torch.nn as nn
+
 app = Flask('__HGR__')
 
-IMGS_Array =[]
+IMGS_Array = []
 # load config file
 with open('./configs/config2.json') as data_file:
     config = json.load(data_file)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
+
+dataset_object = JpegDataset(config['train_data_csv'], config['labels_csv'], config['train_data_folder'])
+
+label_dict = dataset_object.classes_dict
+
 transform = Compose([
         CenterCrop(84),
         ToTensor(),
@@ -21,56 +31,70 @@ transform = Compose([
                   std=[0.229, 0.224, 0.225])
     ])
 
-def recongnize(imgs):
-    print('iscall')
-    # pre-op data
-    data = []
-    for img in imgs:
-        img = transform(img)
-        data.append(torch.unsqueeze(img, 0))
+#init model
+# create model
+model = ConvColumn(config['num_classes'])
+# multi GPU setting
+model = torch.nn.DataParallel(model).to(device)
+checkpoint = torch.load(config['checkpoint'], map_location='cpu')
+model.load_state_dict(checkpoint['state_dict'])
 
-    input = torch.cat(data)
-    input = input.permute(1, 0, 2, 3)
-    input = [input]
-    # create model
-    model = ConvColumn(config['num_classes'])
 
-    # multi GPU setting
-    model = torch.nn.DataParallel(model).to(device)
-    checkpoint = torch.load(config['checkpoint'])
-    model.load_state_dict(checkpoint['state_dict'])
-
+def model_caculate(input):
     # compute the model
     input = input.to(device)
     out = model(input)
-    print(out.detach().cpu().numpy)
+    label_number = np.argmax(out.detach().cpu().numpy())
+    label = label_dict[label_number]
+    print(label_number)
+    print(label)
+    return label, label_number
+
+
+# input 18+2 shape()img for three input and we can output the high ;
+def recognize(array_img):
+    # normalize teh img;
+    # pre-op data
+    data = []
+    for img in array_img:
+        img = transform(img)
+        data.append(torch.unsqueeze(img, 0))
+
+    # data shape=(20,84,84,3)
+    #input = [data[0:17], data[1:18], data[2: 19]]
+    # input shape=(3,18,84,84,3)
+    input = torch.cat(data)
+    input = input.permute(1, 0, 2, 3)
+    input.resize_(1, 3, 18, 84, 84)
+    label,label_number = model_caculate(input)
+    return label, label_number
+
 
 
 @app.route("/receive", methods=['GET', 'POST'])
 def receive_img():
-    print('call me')
     data = request.get_json()
     imgdata = base64.b64decode(data['imageBase64'])
-    # save imgs
-    file = open("images/1.png", 'wb')
+    file = open('images/{}.png'.format(len(IMGS_Array) % 18), 'wb')
     file.write(imgdata)
     file.close()
-    imgdata=Image.open("images/1.png").convert('RGB')
+    # save imgs
+    image_data = BytesIO(imgdata)
+    imgdata = Image.open(image_data).convert('RGB')
     # insert images
     IMGS_Array.append(imgdata)
-    print(IMGS_Array)
     result_data = {}
-    if len(IMGS_Array) > 18:
-        del IMGS_Array[0]
+    if len(IMGS_Array) % 18 == 0:
+        # recognize
+        label, label_number = recognize(IMGS_Array)
+        result_data['result'] = 'success'
+        result_data['info'] = label
+        del IMGS_Array[:]
     else:
+        # cannot recognize
         result_data['result'] = 'fail'
         result_data['info'] = 'don\'t have enough numbers'
-        return jsonify(result=result_data)
-
-    # recognize
-    recongnize(IMGS_Array)
-
-    return jsonify(result=data)
+    return jsonify(result=result_data)
 
 
 @app.route("/test", methods=['GET', 'POST'])
