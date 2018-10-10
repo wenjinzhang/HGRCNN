@@ -9,7 +9,8 @@ from torchvision.transforms import *
 import torch
 import numpy as np
 from data_parser import JpegDataset
-
+import os
+import glob
 import torch.nn as nn
 
 app = Flask('__HGR__')
@@ -110,6 +111,31 @@ def index():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, ssl_context='adhoc')
+
+
+def get_frame_names(path):
+    frame_names = []
+    frame_names.extend(glob.glob(os.path.join('/home/wenjin/Documents/pycharmworkspace/20bn-jester-v1/'+path, "*" + '.jpg')))
+    frame_names = list(sorted(frame_names))
+    num_frames = len(frame_names)
+    num_frames_necessary = 36
+    # pick frames
+    offset = 0
+    if num_frames_necessary > num_frames:
+        # pad last frame if video is shorter than necessary
+        frame_names += [frame_names[-1]] * (num_frames_necessary - num_frames)
+
+    frame_names = frame_names[0:num_frames_necessary:2]
+    return frame_names
+
+
+fram_names = get_frame_names('1')
+
+imgs=[]
+for path in fram_names:
+    imgdata = Image.open(path).convert('RGB')
+    imgs.append(imgdata)
+
 
 
 
